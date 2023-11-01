@@ -1,5 +1,7 @@
 using Amazon;
 using Amazon.Runtime;
+using Amazon.SimpleNotificationService;
+using Amazon.SimpleNotificationService.Model;
 using Amazon.SQS;
 using Amazon.SQS.Model;
 using Microsoft.AspNetCore.Mvc;
@@ -35,6 +37,7 @@ public class WeatherForecastController : ControllerBase
     }
 
     [HttpPost]
+    [Route("sqs")]
     public async Task<IActionResult> PostMessageAsync([FromBody] string messageContent)
     {
         try
@@ -53,6 +56,38 @@ public class WeatherForecastController : ControllerBase
             };
             // Send the message to the SQS queue asynchronously
             var sendMessageResponse = await sqsClient.SendMessageAsync(messageRequest);
+            Console.WriteLine($"Message sent with message ID: {sendMessageResponse.MessageId}");
+            return Ok("Message sent successfully.");
+        }
+        catch (Exception ex)
+        {
+            // Handle exceptions, log errors, and return an appropriate response
+            Console.Error.WriteLine($"Error sending message: {ex.Message}");
+            return StatusCode(500, "Error sending the message to SQS.");
+        }
+    }
+    
+    // http post request that sends message to sns topic
+    [HttpPost]
+    [Route("sns")]
+    public async Task<IActionResult> PostMessageToSnsAsync([FromBody] string messageContent)
+    {
+        try
+        {
+            // Set up the Amazon SQS client
+            var snsConfig = new AmazonSimpleNotificationServiceConfig
+            {
+                ServiceURL = "http://localhost:4566",
+            };
+            using var snsClient = new AmazonSimpleNotificationServiceClient(new BasicAWSCredentials("test", "test"), snsConfig);
+            // Define the message attributes
+            var messageRequest = new PublishRequest
+            {
+                TopicArn = "arn:aws:sns:us-east-1:000000000000:my-quick-topic",
+                Message = messageContent
+            };
+            // Send the message to the SQS queue asynchronously
+            var sendMessageResponse = await snsClient.PublishAsync(messageRequest);
             Console.WriteLine($"Message sent with message ID: {sendMessageResponse.MessageId}");
             return Ok("Message sent successfully.");
         }
